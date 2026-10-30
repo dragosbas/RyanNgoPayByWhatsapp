@@ -1,0 +1,85 @@
+name: Deploy
+
+# After CI succeeds on a push to main. workflow_dispatch redeploys main from the Actions tab.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: goodfund-deploy
+  cancel-in-progress: false
+
+env:
+  AZURE_CLIENT_ID: d807f8b6-e489-4fbf-87e7-595878c4232b
+  AZURE_TENANT_ID: d6ae7666-4da4-4aff-8cad-8ddc142ddf6a
+  AZURE_SUBSCRIPTION_ID: b633b2f9-ac7e-4ebe-94ef-e39bb287d153
+  # prisma generate reads this and does not connect. The app's real URL is an App Service setting.
+  DATABASE_URL: postgresql://goodfund:goodfund@127.0.0.1:5432/goodfund
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Package standalone app
+        run: node scripts/package-standalone.mjs
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: goodfund
+          resource-group-name: rg-dbest-shared
+          package: goodfund.zip
+          startup-command: >-
+            cp node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x /tmp/se
+            && chmod +x /tmp/se
+            && PRISMA_SCHEMA_ENGINE_BINARY=/tmp/se node node_modules/prisma/build/index.js migrate deploy
+            && HOSTNAME=0.0.0.0 node server.js
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          url="https://goodfund.azurewebsites.net/"
+          deadline=$((SECONDS + 300))
+          attempt=1
+          while true; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)"
+            if [ -z "$code" ]; then
+              code="000"
+            fi
+            echo "attempt ${attempt}: HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              exit 0
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "${url} did not return 200 within 5 minutes (last HTTP ${code})"
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            sleep 10
+          done

@@ -10,6 +10,22 @@ describe("clientIpFromHeaders", () => {
     expect(ip).toBe("203.0.113.4");
   });
 
+  it("strips the port App Service appends to an IPv4 forwarded address", () => {
+    expect(
+      clientIpFromHeaders((name) =>
+        name === "x-forwarded-for" ? "1.2.3.4:5678, 10.0.0.1:443" : null,
+      ),
+    ).toBe("1.2.3.4");
+  });
+
+  it("strips the port App Service appends to a bracketed IPv6 address", () => {
+    expect(
+      clientIpFromHeaders((name) =>
+        name === "x-forwarded-for" ? "[::1]:5678" : null,
+      ),
+    ).toBe("::1");
+  });
+
   it("falls back to x-real-ip and then unknown", () => {
     expect(
       clientIpFromHeaders((name) =>

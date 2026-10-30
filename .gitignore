@@ -20,6 +20,8 @@
 
 # production
 /build
+/deploy-bundle
+/goodfund.zip
 
 # misc
 .DS_Store
