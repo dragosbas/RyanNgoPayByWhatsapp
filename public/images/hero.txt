@@ -1,0 +1,5 @@
+Placeholder hero photo. To swap it, replace hero.jpg and update the alt text in content/copy.ts (home.imageAlt). The page covers the image on the left, so a landscape photo with the subject near the center works best.
+
+Source: https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca
+License: Unsplash License (https://unsplash.com/license). Free to use, including commercially. Attribution is not required.
+Theme: people standing together, hands stacked.

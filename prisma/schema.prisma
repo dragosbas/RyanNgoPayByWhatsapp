@@ -1,0 +1,53 @@
+// GoodFund data model.
+// The app writes Subscriber only.
+// OutboundMessage and PaymentLink are reserved for later phases
+// (Unipile sending behind a sender interface, Stripe test-mode Payment Links).
+// Nothing in the application reads or writes those two tables yet.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Subscriber {
+  id                 String    @id @default(uuid())
+  phone              String    @unique
+  consentAt          DateTime
+  consentTextVersion String
+  optedOutAt         DateTime?
+  createdAt          DateTime  @default(now())
+
+  outboundMessages OutboundMessage[]
+  paymentLinks     PaymentLink[]
+}
+
+/// Reserved. Later phase: WhatsApp sends via Unipile, behind a sender interface.
+model OutboundMessage {
+  id           String     @id @default(uuid())
+  subscriberId String
+  subscriber   Subscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  body         String
+  status       String     @default("draft")
+  provider     String     @default("unipile")
+  providerRef  String?
+  createdAt    DateTime   @default(now())
+
+  @@index([subscriberId])
+}
+
+/// Reserved. Later phase: Stripe test-mode Payment Links.
+model PaymentLink {
+  id                  String      @id @default(uuid())
+  subscriberId        String?
+  subscriber          Subscriber? @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
+  stripePaymentLinkId String?     @unique
+  url                 String?
+  status              String      @default("draft")
+  createdAt           DateTime    @default(now())
+
+  @@index([subscriberId])
+}
