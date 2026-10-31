@@ -5,7 +5,9 @@
 // Nothing in the application reads or writes those two tables yet.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Local builds use native. App Service is Debian with OpenSSL 3.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
