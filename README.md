@@ -39,6 +39,8 @@ GitHub Actions runs lint, unit tests, the production build, and that end-to-end 
 
 A push to `main` runs CI, then [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds a standalone zip on Node 24 and deploys it to the Azure App Service `goodfund` in `rg-dbest-shared`. Login uses a federated identity, so the workflow has no GitHub secrets. You can also run that workflow by hand from `main`.
 
+Azure sign-in uses GitHub OIDC (`id-token: write`) with the federated credential on the GoodFund app registration.
+
 The zip is the Next.js standalone server, `.next/static`, `public`, `prisma`, and the Prisma CLI (so startup can migrate). App Service uses `WEBSITE_RUN_FROM_PACKAGE=1` and `SCM_DO_BUILD_DURING_DEPLOYMENT=false`. Startup command:
 
 `cp node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x /tmp/se && chmod +x /tmp/se && PRISMA_SCHEMA_ENGINE_BINARY=/tmp/se node node_modules/prisma/build/index.js migrate deploy && HOSTNAME=0.0.0.0 node server.js`
